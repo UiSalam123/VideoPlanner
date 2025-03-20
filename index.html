@@ -190,8 +190,12 @@
                 <textarea id="projectScript" rows="6" placeholder="Write your script here..."></textarea>
             </div>
             
-            <button class="create-btn" onclick="saveProject()">💾 Save Project</button>
+            <!-- ✅ FIXED: Only one button here, no duplicates -->
+            <button id="saveProjectBtn" class="create-btn" onclick="saveProject()" style="display: none;">💾 Save Project</button>
+<button id="updateProjectBtn" class="create-btn" onclick="updateProject()" style="display: none;">✏️ Update Project</button>
+
         </div>
+        
 
         <!-- Project List -->
         <div id="projectList" class="project-grid"></div>
@@ -210,28 +214,43 @@
     </div>
 
     <script>
+       
         // Basic Project Management
         let currentProject = null;
 
-        function showForm() {
-            document.getElementById('projectForm').style.display = 'block';
-            document.querySelector('.create-btn').style.display = 'none';
-        }
+        function showForm(editing = false) {
+    document.getElementById('projectForm').style.display = 'block';
+    document.querySelector('.create-btn').style.display = 'none';
 
-        function showToast(message, type = "success") {
+    if (editing) {
+        document.getElementById('saveProjectBtn').style.display = 'none';
+        document.getElementById('updateProjectBtn').style.display = 'block';
+    } else {
+        document.getElementById('saveProjectBtn').style.display = 'block';
+        document.getElementById('updateProjectBtn').style.display = 'none';
+    }
+}
+
+function hideForm() {
+    document.getElementById('projectForm').style.display = 'none';
+    document.querySelector('.create-btn').style.display = 'block';
+    currentProject = null;
+}
+
+
+function showToast(message, type = "success") {
     const toast = document.getElementById("toast");
     toast.textContent = message;
     toast.className = `toast show ${type}`;
 
-    // Hide toast after 3 seconds
     setTimeout(() => {
         toast.className = "toast";
     }, 3000);
 }
-
-
 function saveProject() {
     if (confirm("Are you sure you want to save this project?")) {
+        let projects = JSON.parse(localStorage.getItem('projects') || '[]');
+
         const project = {
             id: Date.now(),
             title: document.getElementById('projectTitle').value,
@@ -240,53 +259,90 @@ function saveProject() {
             script: document.getElementById('projectScript').value
         };
 
-        let projects = JSON.parse(localStorage.getItem('projects') || '[]');
         projects.push(project);
         localStorage.setItem('projects', JSON.stringify(projects));
 
         showToast("✅ Project saved successfully!", "success");
 
         setTimeout(() => {
-            location.reload(); // Auto reload after saving
+            location.reload();
         }, 1000);
     }
 }
 
-        function loadProjects() {
-            const projects = JSON.parse(localStorage.getItem('projects') || []);
-            const projectList = document.getElementById('projectList');
-            projectList.innerHTML = '';
+function editProject(projectId) {
+    let projects = JSON.parse(localStorage.getItem('projects') || '[]');
+    let project = projects.find(p => p.id === projectId);
 
-            projects.forEach(project => {
-                const card = document.createElement('div');
-                card.className = 'project-card';
-                card.innerHTML = `
-                    <img src="${project.image}" class="project-image">
-                    <h3 class="project-title">${project.title}</h3>
-                    <p class="project-description">${project.description.substring(0, 100)}${project.description.length > 100 ? '...' : ''}</p>
-                    <button class="view-btn action-btn" onclick="showDetails(${project.id})">View Details</button>
-                    <button class="delete-btn action-btn" onclick="deleteProject(${project.id})">Delete</button>
-                `;
-                projectList.appendChild(card);
-            });
-        }
+    if (project) {
+        document.getElementById('projectTitle').value = project.title;
+        document.getElementById('projectImage').value = project.image;
+        document.getElementById('projectDescription').value = project.description;
+        document.getElementById('projectScript').value = project.script;
 
-        function showDetails(projectId) {
-            const projects = JSON.parse(localStorage.getItem('projects') || []);
-            const project = projects.find(p => p.id === projectId);
-            
-            if (project) {
-                document.getElementById('mainPage').style.display = 'none';
-                document.getElementById('detailPage').style.display = 'block';
-                document.getElementById('detailTitle').textContent = project.title;
-                document.getElementById('detailImage').src = project.image;
-                document.getElementById('detailDescription').textContent = project.description;
-                document.getElementById('detailScript').textContent = project.script;
-                currentProject = projectId;
-            }
-        }
+        currentProject = projectId;
+        showForm(true);
+    }
+}
 
-        function deleteProject(projectId) {
+function updateProject() {
+    if (confirm("Are you sure you want to update this project?")) {
+        let projects = JSON.parse(localStorage.getItem('projects') || '[]');
+
+        projects = projects.map(p => (p.id === currentProject ? {
+            id: currentProject,
+            title: document.getElementById('projectTitle').value,
+            image: document.getElementById('projectImage').value,
+            description: document.getElementById('projectDescription').value,
+            script: document.getElementById('projectScript').value
+        } : p));
+
+        localStorage.setItem('projects', JSON.stringify(projects));
+
+        showToast("✏️ Project updated successfully!", "success");
+
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    }
+}
+
+function loadProjects() {
+    const projects = JSON.parse(localStorage.getItem('projects') || '[]');
+    const projectList = document.getElementById('projectList');
+    projectList.innerHTML = '';
+
+    projects.forEach(project => {
+        const card = document.createElement('div');
+        card.className = 'project-card';
+        card.innerHTML = `
+            <img src="${project.image}" class="project-image">
+            <h3 class="project-title">${project.title}</h3>
+            <p class="project-description">${project.description.substring(0, 100)}${project.description.length > 100 ? '...' : ''}</p>
+            <button class="view-btn action-btn" onclick="showDetails(${project.id})">View</button>
+            <button class="edit-btn action-btn" onclick="editProject(${project.id})">✏️ Edit</button>
+            <button class="delete-btn action-btn" onclick="deleteProject(${project.id})">Delete</button>
+        `;
+        projectList.appendChild(card);
+    });
+}
+
+function showDetails(projectId) {
+    const projects = JSON.parse(localStorage.getItem('projects') || []);
+    const project = projects.find(p => p.id === projectId);
+    
+    if (project) {
+        document.getElementById('mainPage').style.display = 'none';
+        document.getElementById('detailPage').style.display = 'block';
+        document.getElementById('detailTitle').textContent = project.title;
+        document.getElementById('detailImage').src = project.image;
+        document.getElementById('detailDescription').textContent = project.description;
+        document.getElementById('detailScript').textContent = project.script;
+        currentProject = projectId;
+    }
+}
+
+function deleteProject(projectId) {
     if (confirm("Are you sure you want to delete this project?")) {
         let projects = JSON.parse(localStorage.getItem('projects') || '[]');
         projects = projects.filter(p => p.id !== projectId);
@@ -295,7 +351,7 @@ function saveProject() {
         showToast("🗑️ Project deleted successfully!", "error");
 
         setTimeout(() => {
-            location.reload(); // Auto reload after deleting
+            location.reload();
         }, 1000);
     }
 }
@@ -305,11 +361,12 @@ function deleteCurrentProject() {
     showMainPage();
 }
 
-        function showMainPage() {
-            document.getElementById('mainPage').style.display = 'block';
-            document.getElementById('detailPage').style.display = 'none';
-            loadProjects();
-        }
+
+function showMainPage() {
+    document.getElementById('mainPage').style.display = 'block';
+    document.getElementById('detailPage').style.display = 'none';
+    loadProjects();
+}
 
         // Initial load
         loadProjects();
